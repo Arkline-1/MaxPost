@@ -1,5 +1,8 @@
 import logging
+import os
 from logging.handlers import RotatingFileHandler
+
+os.makedirs("logs", exist_ok=True)
 
 logger = logging.getLogger("maxpost")
 logger.setLevel(logging.DEBUG)
