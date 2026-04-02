@@ -4,8 +4,6 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from setup import TG_TOKEN
 from websocket import MaxClient
-from connection import create_max_session, create_tg_bot
-from messages.input import start_polling
 
 
 async def main():
