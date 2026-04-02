@@ -7,7 +7,7 @@ import json
 import uuid
 
 
-class WSOpcodeEnum(IntEnum):
+class Opcode(IntEnum):
     ACK = 1
     INIT = 6
     AUTHORIZE = 19
@@ -27,13 +27,13 @@ class InitUserAgent:
 
 
 @dataclass
-class WSInitPayload:
+class InitPayload:
     userAgent: InitUserAgent
     deviceId: str
 
 
 @dataclass
-class WSAuthPayload:
+class AuthPayload:
     token: str
     chatCounts: int
     interactive: bool
@@ -44,7 +44,7 @@ class WSAuthPayload:
 
 
 @dataclass
-class WSGetChatMessagesPayload:
+class GetChatMessagesPayload:
     chatId: str
     at: int
     forward: int
@@ -73,18 +73,19 @@ class GetChatMessagesResponse:
             self.messages = [Message(**x) for x in self.messages]
 
 
-type WSPayload = WSInitPayload | WSAuthPayload | GetChatMessagesResponse
+type Payload = InitPayload | AuthPayload | GetChatMessagesResponse
 
 
 @dataclass
-class WSEvent:
+class MaxEvent:
     ver: int
     cmd: int
     seq: int
-    opcode: WSOpcodeEnum
+    opcode: Opcode
     payload: dict | None
 
 
+MAX_WEBSOCKET_URL = "wss://ws-api.oneme.ru/websocket"
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:149.0) Gecko/20100101 Firefox/149.0"
 TOKEN = "An_Sx6HQ9HDiyzXOY-CJ7rHpTLyltqMnzfrLMbQKu0cAEezF3TC7e56PeuOU4nuy5rDovpVsBoKRspXVNt1cqwy2wudXg7UFhBZimgC641eCJGo7IPE3ijL6-jLyUNkOdOd7i8BrM0jk7Fhy_KHBE6EB6BFQEtnKnUlOXUvIvX4f_sEHnmbv-RUGDe1zp7l-zPkzGbyshPNp2qnCUQ_vdv39dZQ_IUxYtqIceMKJgsHntcWWG88Dl7z4V7ml17i5xXelxF_KwLVkvab5f0EPW1A8YC2uxI4H1cclQs_3h6MnqHhfXNfbRQHT5RbTrr180bLrq1n_aMHjxPxlFGXTBjp2APsbuqzCtADtgstywGvU5UbSZ2VqNqP9Unpj4AE2cwITafGMAohE_4UASXq03L8Io0XviceM6V2h-08oEHichd9cqHHVtIGjB5Lq3W3AULNzBrvMxz3eiy9AVcBOIm_SjkF3K8kkzttJyc6XiXhEm8PGpw7oGf7LtwTnbigtDDDxS4ZPB0D6a7ujOPd0t-QlPVOOR80NnnSzuDsW1IKWOefccHyGFvmYyZugJnodu6U8UZGghHUqaOtfIr1Voxoi1Y_LiX5D4D5EBYUiZmJGymwXvfRxeA3QrLGYOLUmEOV7vK2yUfCAiZ0X89w-9BnRVmkwNb67QDVmKqKcq7rl6dSQi30wJwO_rrs4Z_SRxkIFPmA"
 
@@ -99,7 +100,7 @@ HEADERS = {
     "Cache-Control": "no-cache",
 }
 
-INIT_PAYLOAD = WSInitPayload(
+INIT_PAYLOAD = InitPayload(
     InitUserAgent(
         "WEB",
         "ru",
@@ -113,20 +114,20 @@ INIT_PAYLOAD = WSInitPayload(
     str(uuid.uuid4()),
 )
 
-AUTH_PAYLOAD = WSAuthPayload(TOKEN, 40, True, 0, 0, 0, 0)
+AUTH_PAYLOAD = AuthPayload(TOKEN, 40, True, 0, 0, 0, 0)
 
 
 def create_init_obj() -> dict:
-    return asdict(WSEvent(11, 0, 0, int(WSOpcodeEnum.INIT), payload=INIT_PAYLOAD))
+    return asdict(MaxEvent(11, 0, 0, int(Opcode.INIT), payload=INIT_PAYLOAD))
 
 
 def create_auth_obj() -> dict:
-    return asdict(WSEvent(11, 0, 1, int(WSOpcodeEnum.AUTHORIZE), payload=AUTH_PAYLOAD))
+    return asdict(MaxEvent(11, 0, 1, int(Opcode.AUTHORIZE), payload=AUTH_PAYLOAD))
 
 
 def create_ack_obj(seq: int) -> dict:
     return asdict(
-        WSEvent(11, 0, seq, int(WSOpcodeEnum.ACK), payload={"interactive": True})
+        MaxEvent(11, 0, seq, int(Opcode.ACK), payload={"interactive": True})
     )
 
 
@@ -134,12 +135,9 @@ def create_fetch_chat_messages_obj(
     chat_id: str, at: int, before: int = 0, after: int = 0
 ) -> dict:
     d = asdict(
-        WSEvent(
-            11,
-            0,
-            -1,
-            int(WSOpcodeEnum.GET_CHAT_MESSAGES),
-            payload=WSGetChatMessagesPayload(chat_id, at, after, before),
+        MaxEvent(
+            11, 0, -1, int(Opcode.GET_CHAT_MESSAGES),
+            payload=GetChatMessagesPayload(chat_id, at, after, before),
         )
     )
     d["payload"]["from"] = d["payload"].pop("at")
@@ -154,14 +152,14 @@ class MaxClient:
         self.ws = None
         self._hb = None
         self.inj = injection
-        self.handlers: dict[int, Callable[[WSEvent, dict | None], Awaitable[None]]] = (
+        self.handlers: dict[int, Callable[[MaxEvent, dict | None], Awaitable[None]]] = (
             dict()
         )
 
     def add_listener(
         self,
-        opcode: WSOpcodeEnum,
-        callback: Callable[[WSEvent, dict | None], Awaitable[None]],
+        opcode: Opcode,
+        callback: Callable[[MaxEvent, dict | None], Awaitable[None]],
     ) -> None:
         self.handlers[int(opcode)] = callback
 
@@ -198,7 +196,7 @@ class MaxClient:
 
         try:
             self.ws = await self.session.ws_connect(
-                "wss://ws-api.oneme.ru/websocket", headers=HEADERS
+                MAX_WEBSOCKET_URL, headers=HEADERS
             )
             self._hb = asyncio.create_task(self._heartbeat_loop())
         except Exception as e:
@@ -215,7 +213,7 @@ class MaxClient:
         try:
             async for msg in self.ws:
                 if msg.type == WSMsgType.TEXT:
-                    event = WSEvent(**json.loads(msg.data))
+                    event = MaxEvent(**json.loads(msg.data))
                     callback = self.handlers.get(event.opcode)
 
                     if callback:
