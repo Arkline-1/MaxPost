@@ -1,35 +1,47 @@
 import asyncio
-from datetime import datetime as dt
-
 from aiogram import Bot
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-
 from setup import TG_TOKEN, MAX_CHAT_ID
-from ws import MaxClient, MaxEvent, GetChatMessagesResponse, Opcode, create_fetch_chat_messages_obj
+from ws import MaxClient, Opcode, create_fetch_chat_messages_obj, MaxEvent, GetChatMessagesResponse, Message
+from tg_bot import send_to_telegram
 
 
-async def get_messages(client: MaxClient):
-    d = create_fetch_chat_messages_obj(
-        MAX_CHAT_ID, dt.now().timestamp() * 1000, before=10)
+async def universal_handler(event: MaxEvent, injection: dict | None):
+    bot = injection.get("bot")
+    
+    raw_messages = []
+    
+    if event.opcode == Opcode.GET_CHAT_MESSAGES:
+        raw_messages = event.payload.get("messages", [])
+        
+    elif event.opcode == Opcode.MSG_INCOMING:
+        single_msg = event.payload.get("message")
+        if single_msg:
+            raw_messages = [single_msg]
 
-    await client.send(d)
+    if not raw_messages:
+        return
 
-
-async def on_message(event: MaxEvent, injection: dict):
-    pass
-
+    processed = []
+    for m_data in raw_messages:
+        msg = Message(**m_data)
+        
+        links = [a.get("preview").get("baseUrl") for a in msg.attaches if isinstance(a, dict)]
+        
+        processed.append({
+            "sender": msg.sender,
+            "time": msg.time,
+            "text": msg.text,
+            "attaches": [link for link in links if link]
+        })
+    
+    await send_to_telegram(bot, processed)
 
 async def main():
-    bot = Bot(
-        token=TG_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-    )
-
-    client = MaxClient({"bot": bot})
-
-    client.add_loop_task(300, get_messages)
-    client.add_listener(Opcode.GET_CHAT_MESSAGES, on_message)
+    bot = Bot(token=TG_TOKEN)
+    client = MaxClient(injection={"bot": bot})
+    
+    client.add_listener(Opcode.GET_CHAT_MESSAGES, universal_handler)
+    client.add_listener(Opcode.MSG_INCOMING, universal_handler)
 
     await client.run()
 
