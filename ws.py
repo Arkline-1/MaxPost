@@ -14,6 +14,7 @@ class Opcode(IntEnum):
     AUTHORIZE = 19
     GET_CHAT_MESSAGES = 49
     AUTH_TRACKING = 289
+    MSG_INCOMING = 128
 
 
 @dataclass
