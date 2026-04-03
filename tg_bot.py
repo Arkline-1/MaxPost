@@ -14,8 +14,9 @@ async def send_to_telegram(bot: Bot, data_list: list[dict]):
             if not item["attaches"]:
                 await bot.send_message(TG_CHAT_ID, caption)
             else:
-                await bot.send_photo(
-                    TG_CHAT_ID, photo=item["attaches"][0], caption=caption
-                )
+                for photo in item["attaches"]:
+                    await bot.send_photo(
+                        TG_CHAT_ID, photo=photo, caption=caption
+                    )
         except Exception as e:
             print(f"Some shit happend: {e}")
