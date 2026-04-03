@@ -25,7 +25,7 @@ async def universal_handler(event: MaxEvent, injection: dict | None):
     for m_data in raw_messages:
         msg = Message(**m_data)
         
-        links = [a.get("preview").get("baseUrl") for a in msg.attaches if isinstance(a, dict)]
+        links = [d.get("baseUrl") for d in msg.attaches]
         
         processed.append({
             "sender": msg.sender,
