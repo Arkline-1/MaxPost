@@ -65,6 +65,7 @@ class Message:
     cid: int
     attaches: list[dict]
     reactionInfo: dict | None = None
+    link: dict | None = None
 
 
 @dataclass
@@ -76,7 +77,14 @@ class GetChatMessagesResponse:
             self.messages = [Message(**x) for x in self.messages]
 
 
-type Payload = InitPayload | AuthPayload | GetChatMessagesResponse
+@dataclass
+class NewMessage:
+    chatId: int
+    unread: int
+    message: Message
+    ttl: bool
+    mark: int
+    prevMessageId: str
 
 
 @dataclass
@@ -150,11 +158,11 @@ def create_fetch_chat_messages_obj(
 
 
 class MaxClient:
-    def __init__(self, injection: dict | None = None):
+    def __init__(self, **kwargs):
         self.seq = 0
         self.session = None
         self.ws = None
-        self.inj = injection
+        self.inj = kwargs
         self.handlers: dict[int, Callable[[MaxEvent, dict | None], Awaitable[None]]] = (
             dict()
         )
@@ -242,7 +250,7 @@ class MaxClient:
                     print(event, "\n")
 
                     if callback:
-                        await callback(event, self.inj)
+                        await callback(event, **self.inj)
 
                 elif msg.type == WSMsgType.ERROR:
                     print(f"Some shit happend: {self.ws.exception()}")
