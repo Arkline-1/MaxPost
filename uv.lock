@@ -198,9 +198,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiogram", specifier = ">=3.26.0" },
-    { name = "aiohttp", specifier = ">=3.13.5" },
-    { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "aiogram" },
+    { name = "aiohttp" },
+    { name = "python-dotenv" },
 ]
 
 [[package]]
