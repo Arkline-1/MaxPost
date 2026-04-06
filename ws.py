@@ -12,9 +12,9 @@ class Opcode(IntEnum):
     ACK = 1
     INIT = 6
     AUTHORIZE = 19
-    GET_CHAT_MESSAGES = 49
+    GET_CHAT_HISTORY = 49
+    MESSAGE_CREATE = 128
     AUTH_TRACKING = 289
-    MSG_INCOMING = 128
 
 
 @dataclass
@@ -139,7 +139,7 @@ def create_fetch_chat_messages_obj(
 ) -> dict:
     d = asdict(
         MaxEvent(
-            11, 0, -1, int(Opcode.GET_CHAT_MESSAGES),
+            11, 0, -1, int(Opcode.GET_CHAT_HISTORY),
             payload=GetChatMessagesPayload(
                 int(chat_id), int(at), after, before),
         )
@@ -191,7 +191,7 @@ class MaxClient:
             raise ValueError("Client is not running")
 
         data["seq"] = self.seq
-        print(data)
+
         await self.ws.send_json(data)
 
         self.seq += 1
